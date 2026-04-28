@@ -1,0 +1,33 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            saitama-culture-rss の CLAUDE.md と既存実装 (main.py の fetch_show_list / show_to_item / build_feed パターン) を参照し、この PR をレビューしてください。
+
+            重点:
+            - バグ / 未処理の例外パス / ロジックの退行
+            - 秘密情報の露出、untrusted input (workflow 編集があれば github.event.* 由来のシェル展開)
+            - HTTP 呼び出しに timeout / raise_for_status があるか
+            - p-ticket API の応答形が変わったときの劣化耐性 (per-item try/except)
+            - pyproject.toml / uv.lock / pre-commit / dependabot 設定の整合性
+            - ruff / mypy / pytest cov-fail-under=80 を満たしているか
+
+            軽微なスタイル指摘は省略。実害のある指摘のみ、日本語で簡潔に。問題なければ "LGTM" とだけ返答。
