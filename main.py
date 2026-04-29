@@ -1,4 +1,5 @@
 import datetime
+import html
 import os
 from pathlib import Path
 from typing import Any
@@ -72,8 +73,28 @@ def build_title(show: dict[str, Any]) -> str:
     return str(main)
 
 
+def build_image_tag(show: dict[str, Any]) -> str | None:
+    show_group_id = show.get("show_group_id")
+    if not show_group_id:
+        return None
+    src = IMAGE_URL_TEMPLATE.format(show_group_id=show_group_id)
+    alt = html.escape(show.get("show_group_main_title") or "", quote=True)
+    return f'<img src="{src}" alt="{alt}" style="max-width:100%">'
+
+
 def build_description(show: dict[str, Any]) -> str:
+    """要点だけのコンパクトなアイテム本文を組み立てる.
+
+    詳細は link 先のページに任せ、フィード側はサムネイル + 一目で分かる
+    メタ情報 (公演日時 / 会場 / ジャンル / 販売状況) のみ。長文の
+    list_explanation はあえて含めない (情報量過多の元なので)。
+    """
     parts: list[str] = []
+
+    image = build_image_tag(show)
+    if image is not None:
+        parts.append(image)
+
     if show.get("show_term"):
         parts.append(f"公演日時: {show['show_term']}")
     if show.get("hall_nm"):
@@ -82,17 +103,10 @@ def build_description(show: dict[str, Any]) -> str:
     if genre:
         parts.append(f"ジャンル: {genre}")
     for sales in show.get("sales_list") or []:
-        if not sales.get("sales_term"):
-            continue
-        line = f"販売: {sales['sales_term']}"
-        if sales.get("show_sales_status"):
-            line += f" ({sales['show_sales_status']})"
-        parts.append(line)
-    explanation = show.get("list_explanation") or ""
-    if explanation:
-        # ソース側に文字列リテラルの "</br>" が混じっているので <br> に正規化
-        parts.append(explanation.replace("</br>", "<br>"))
-    return "<br><br>".join(parts)
+        status = sales.get("show_sales_status")
+        if status:
+            parts.append(f"販売: {status}")
+    return "<br>".join(parts)
 
 
 def show_to_item(show: dict[str, Any]) -> dict[str, Any]:

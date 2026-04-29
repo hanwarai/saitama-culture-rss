@@ -50,7 +50,7 @@ GET https://api.p-ticket.jp/show/get-list-home
 | `disp_sort` | 公演開始日時 `YYYYMMDDHHMM` 形式（ソート/`pubdate` 用、こちらが機械可読） |
 | `genre_nm` / `sub_genre_nm` | ジャンル（description / category） |
 | `hall_nm` | 会場名（例: `さいたま市文化センター`） |
-| `list_explanation` | 本文。`</br>` 文字列で改行されている（`<br>` ではない）— description にそのまま入れるか正規化する |
+| `list_explanation` | 本文の長文（`</br>` 文字列で改行）。**現在の実装では使っていない** — フィード本文を肥大化させる原因なので意図的に捨てている。詳細は link 先で読ませる方針 |
 | `sales_list[].sales_term` / `show_sales_status` | 販売期間と空席状況（`"空席あり○"` / `"残りわずか△"`） |
 | `code_nm` | 画像のオリジナル拡張子。**公開 URL には拡張子は不要**（下記） |
 
@@ -69,7 +69,7 @@ GET https://api.p-ticket.jp/show/get-list-home
    - `title = show_group_main_title`（`show_group_sub_title` があれば連結）
    - `link = https://p-ticket.jp/saitama-culture/event/{show_group_id}`
    - `pubdate = parse(disp_sort, JST)`（`YYYYMMDDHHMM` を `Asia/Tokyo` で datetime 化、`tver-rss` 同様 UTC に変換して渡す）
-   - `description` に会場/ジャンル/`show_term`/`sales_term`/`show_sales_status`/`list_explanation`（`</br>` → `<br>` に置換）をまとめる
+   - `description` は **コンパクト**: 先頭に CDN サムネイル `<img>`、続けて `公演日時 / 会場 / ジャンル / 販売状況` を `<br>` 区切りで並べるだけ。`list_explanation` は使わない（リーダー上で情報過多になる）。`<img>` の `alt` は `html.escape(show_group_main_title, quote=True)` でエスケープ
 3. `feedgenerator.Atom1Feed` を `dist/feed.xml` に書き出して終わり
 
 `requests` 呼び出しには **必ず `timeout` と `raise_for_status`** を付ける（`tver-rss/main.py:14-17` 参照）。1 アイテムのパース失敗で全体を落とさない per-item `try/except` パターンも踏襲。
@@ -119,7 +119,7 @@ CI (`.github/workflows/ci.yaml`) は push / PR で `ruff check` / `ruff format -
 ## 既知の落とし穴
 
 - API は `member_kb_no` を欠くと 500 を返す（`{"status":"fail","data":{}}`）。`0` を必ず付ける
-- `list_explanation` は HTML エンティティではなく **リテラルの文字列 `</br>`** が入っている。`<br>` への置換、または `feedgenerator` に任せて XML エスケープのまま流す（リーダー側で読みづらくなる）かは実装時に判断
+- `list_explanation` は HTML エンティティではなく **リテラルの文字列 `</br>`** が混じる。現状は使っていないので問題にならないが、もし将来本文として使うなら `replace("</br>", "<br>")` を忘れずに
 - `disp_sort` は JST 想定。UTC 変換漏れに注意
 - 画像 URL に `code_nm`（`png`/`jpg`）の拡張子を足すと CloudFront 403。**拡張子なしのまま使う**
 - 件数は現状 ~18 件で `end_position=100` で全件取れるが、将来増えるなら `record_num` を見て二度引きに

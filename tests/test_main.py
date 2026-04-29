@@ -19,7 +19,6 @@ def show_full() -> dict[str, Any]:
         "genre_nm": "音楽",
         "sub_genre_nm": "クラシック",
         "hall_nm": "さいたま市文化センター",
-        "list_explanation": "出演者：A氏</br>※未就学児入場不可",  # noqa: RUF001
         "sales_list": [
             {
                 "sales_term": "2026/3/13(金) 10:00　〜　2026/4/30(木) 23:59",
@@ -62,33 +61,52 @@ def test_build_title_falls_back_to_show_group_id() -> None:
     assert main.build_title(show) == "bc1"
 
 
-def test_build_description_includes_sections(show_full: dict[str, Any]) -> None:
+def test_build_image_tag_returns_cdn_img_with_escaped_alt() -> None:
+    tag = main.build_image_tag(
+        {"show_group_id": "bc260501", "show_group_main_title": '"危険" な & タイトル'}
+    )
+    assert tag is not None
+    assert 'src="https://cdn.p-ticket.jp/saitama-culture/event/bc260501/internet_pic0_image"' in tag
+    # 二重引用符 / アンパサンドは HTML エスケープされる
+    assert "&quot;" in tag
+    assert "&amp;" in tag
+
+
+def test_build_image_tag_returns_none_without_show_group_id() -> None:
+    assert main.build_image_tag({"show_group_main_title": "no id"}) is None
+
+
+def test_build_description_includes_image_and_meta(show_full: dict[str, Any]) -> None:
     desc = main.build_description(show_full)
+    assert (
+        '<img src="https://cdn.p-ticket.jp/saitama-culture/event/bc260501/internet_pic0_image"'
+        in desc
+    )
     assert "公演日時: 2026/5/1(金) 18:30" in desc
     assert "会場: さいたま市文化センター" in desc
     assert "ジャンル: 音楽 / クラシック" in desc
-    assert "販売: 2026/3/13(金) 10:00　〜　2026/4/30(木) 23:59 (空席あり○)" in desc
-    # </br> は <br> に正規化される
-    assert "</br>" not in desc
-    assert "出演者：A氏<br>※未就学児入場不可" in desc  # noqa: RUF001
+    assert "販売: 空席あり○" in desc
 
 
-def test_build_description_skips_missing_fields() -> None:
-    desc = main.build_description({"show_group_id": "bc1"})
-    assert desc == ""
+def test_build_description_drops_list_explanation_for_brevity() -> None:
+    desc = main.build_description({"show_group_id": "bc1", "list_explanation": "長い本文"})
+    assert "長い本文" not in desc
+    # show_group_id だけ与えても画像タグは入る
+    assert "<img" in desc
 
 
-def test_build_description_handles_partial_sales_entry() -> None:
+def test_build_description_skips_sales_without_status() -> None:
     desc = main.build_description(
         {
+            "show_group_id": "bc1",
             "sales_list": [
-                {"sales_term": "2026/3/13(金) 10:00"},  # show_sales_status なし
-                {"show_sales_status": "完売"},  # sales_term なし → スキップ
-            ]
+                {"sales_term": "2026/3/13"},  # status なし → スキップ
+                {"show_sales_status": "完売"},  # status のみ → 採用
+            ],
         }
     )
-    assert "販売: 2026/3/13(金) 10:00" in desc
-    assert "完売" not in desc
+    assert "販売: 完売" in desc
+    assert "2026/3/13" not in desc
 
 
 def test_show_to_item_links_to_detail_page(show_full: dict[str, Any]) -> None:
