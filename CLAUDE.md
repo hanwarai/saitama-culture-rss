@@ -59,11 +59,9 @@ GET https://api.p-ticket.jp/show/get-list-home
 - 詳細ページ: `https://p-ticket.jp/saitama-culture/event/{show_group_id}` → アイテムの `link`
 - メイン画像: `https://cdn.p-ticket.jp/saitama-culture/event/{show_group_id}/internet_pic0_image`（拡張子なしで 200 が返る。`code_nm` を末尾につけると 403 なので注意）
 
-## 想定アーキテクチャ（`main.py`）
+## アーキテクチャ（`main.py`）
 
-`tver-rss/main.py` の `fetch_json` パターンを踏襲:
-
-1. `fetch_json('GET', SHOW_LIST_HOME_URL, params={...})` でリストを 1 リクエストで取得（ページング不要）
+1. `fetch_show_list()`: `requests.get(API_URL, params=..., headers=API_HEADERS, timeout=TIMEOUT)` → `raise_for_status` → JSON unwrap。ページング不要 (1 リクエストで全件)
 2. `data.show_list` を回して、各 show を Atom item に変換:
    - `unique_id = show_group_id`
    - `title = show_group_main_title`（`show_group_sub_title` があれば連結）
@@ -71,17 +69,18 @@ GET https://api.p-ticket.jp/show/get-list-home
    - `pubdate = parse(disp_sort, JST)`（`YYYYMMDDHHMM` を `Asia/Tokyo` で datetime 化、`tver-rss` 同様 UTC に変換して渡す）
    - `description` は **コンパクト**に `公演日時 / 会場 / ジャンル / 販売状況` を `<br>` 区切りで並べるだけ。`list_explanation` は使わない（リーダー上で情報過多になる）
    - サムネイル画像は **`<media:thumbnail>`**（Media RSS, `xmlns:media="http://search.yahoo.com/mrss/"`）で出す。本文に `<img>` は埋めない（リーダー側で二重表示になるため）。これは `feedgenerator.Atom1Feed` を継承した `AtomFeedWithMedia` で実装: `root_attributes` で namespace を増やし、`add_item_elements` で `media:thumbnail` を吐く。アイテム側は `add_item(media_thumbnail=URL, ...)` で渡す
-3. `feedgenerator.Atom1Feed` を `dist/feed.xml` に書き出して終わり
+3. `AtomFeedWithMedia`（`feedgenerator.Atom1Feed` 派生）で `dist/feed.xml` に書き出して終わり
 
-`requests` 呼び出しには **必ず `timeout` と `raise_for_status`** を付ける（`tver-rss/main.py:14-17` 参照）。1 アイテムのパース失敗で全体を落とさない per-item `try/except` パターンも踏襲。
+`requests` 呼び出しには **必ず `timeout` と `raise_for_status`** を付ける（`main.py:43-50`）。1 アイテムのパース失敗で全体を落とさない per-item `try/except` は `build_feed` で実装。
 
-## 想定コマンド
+## コマンド
 
 Python 3.13 系を `uv` で固定。
 
 ```bash
 uv sync                     # 依存インストール (dev グループ含む)
 uv run main.py              # フィード生成: dist/feed.xml を出力
+SSL_VERIFY=False uv run main.py  # 自己署名証明書環境用 (社内プロキシ等)
 uv run ruff check .         # lint (mccabe 複雑度 10 まで含む)
 uv run ruff format --check . # format チェック (修正は --check を外す)
 uv run mypy                 # 型検査 (strict 寄り)
@@ -101,7 +100,7 @@ CI (`.github/workflows/ci.yaml`) は push / PR で `ruff check` / `ruff format -
 - `astral-sh/setup-uv` → `actions/setup-python`（`python-version-file: pyproject.toml`）→ `uv sync` → `uv run main.py` → `actions/upload-pages-artifact`（path: `dist`）→ `actions/deploy-pages`
 - `concurrency` を workflow 単位でまとめて、push と cron の競合を防ぐ
 
-`dist/feed.xml` は `.gitignore` 対象（ランナー上で生成して直接 Pages にアップ）。git で tracked にするものはなし（`dist/` 自体を ignore してもよい）。
+`dist/` 配下は `.gitignore` 済み（ランナー上で生成して直接 Pages にアップ）。git tracked な成果物はない。
 
 購読 URL は `https://hanwarai.github.io/saitama-culture-rss/feed.xml`。ルート (`/`) には `index.html` がないので 404 になる — リーダーには `feed.xml` の URL を直接渡す。
 
@@ -119,6 +118,7 @@ CI (`.github/workflows/ci.yaml`) は push / PR で `ruff check` / `ruff format -
 
 ## 既知の落とし穴
 
+- **API は `Origin: https://p-ticket.jp` と `Referer: https://p-ticket.jp/saitama-culture` の両ヘッダが必須**。欠けると **502 Bad Gateway**（WAF/CDN 挙動）。`main.py` の `API_HEADERS` で固定済み — リクエスト経路を変えるとき要注意
 - API は `member_kb_no` を欠くと 500 を返す（`{"status":"fail","data":{}}`）。`0` を必ず付ける
 - `list_explanation` は HTML エンティティではなく **リテラルの文字列 `</br>`** が混じる。現状は使っていないので問題にならないが、もし将来本文として使うなら `replace("</br>", "<br>")` を忘れずに
 - `disp_sort` は JST 想定。UTC 変換漏れに注意
