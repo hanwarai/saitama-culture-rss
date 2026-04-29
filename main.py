@@ -1,5 +1,4 @@
 import datetime
-import html
 import os
 from pathlib import Path
 from typing import Any
@@ -73,28 +72,21 @@ def build_title(show: dict[str, Any]) -> str:
     return str(main)
 
 
-def build_image_tag(show: dict[str, Any]) -> str | None:
+def build_image_url(show: dict[str, Any]) -> str | None:
     show_group_id = show.get("show_group_id")
     if not show_group_id:
         return None
-    src = IMAGE_URL_TEMPLATE.format(show_group_id=show_group_id)
-    alt = html.escape(show.get("show_group_main_title") or "", quote=True)
-    return f'<img src="{src}" alt="{alt}" style="max-width:100%">'
+    return IMAGE_URL_TEMPLATE.format(show_group_id=show_group_id)
 
 
 def build_description(show: dict[str, Any]) -> str:
     """要点だけのコンパクトなアイテム本文を組み立てる.
 
-    詳細は link 先のページに任せ、フィード側はサムネイル + 一目で分かる
-    メタ情報 (公演日時 / 会場 / ジャンル / 販売状況) のみ。長文の
-    list_explanation はあえて含めない (情報量過多の元なので)。
+    画像はフィード側で <media:thumbnail> として別途吐くので本文には入れない。
+    本文は一目で分かるメタ (公演日時 / 会場 / ジャンル / 販売状況) のみ。
+    長文の list_explanation はあえて含めない (情報量過多の元なので)。
     """
     parts: list[str] = []
-
-    image = build_image_tag(show)
-    if image is not None:
-        parts.append(image)
-
     if show.get("show_term"):
         parts.append(f"公演日時: {show['show_term']}")
     if show.get("hall_nm"):
@@ -111,17 +103,36 @@ def build_description(show: dict[str, Any]) -> str:
 
 def show_to_item(show: dict[str, Any]) -> dict[str, Any]:
     show_group_id = show["show_group_id"]
-    return {
+    item: dict[str, Any] = {
         "unique_id": show_group_id,
         "title": build_title(show),
         "link": DETAIL_URL_TEMPLATE.format(show_group_id=show_group_id),
         "description": build_description(show),
         "pubdate": parse_disp_sort(show["disp_sort"]),
     }
+    image_url = build_image_url(show)
+    if image_url is not None:
+        item["media_thumbnail"] = image_url
+    return item
 
 
-def build_feed(shows: list[dict[str, Any]]) -> feedgenerator.Atom1Feed:
-    feed = feedgenerator.Atom1Feed(
+class AtomFeedWithMedia(feedgenerator.Atom1Feed):
+    """Atom1Feed + Media RSS namespace で `<media:thumbnail>` を出すラッパ."""
+
+    def root_attributes(self) -> dict[str, str]:
+        attrs: dict[str, str] = super().root_attributes()
+        attrs["xmlns:media"] = "http://search.yahoo.com/mrss/"
+        return attrs
+
+    def add_item_elements(self, handler: Any, item: dict[str, Any]) -> None:
+        super().add_item_elements(handler, item)
+        thumbnail = item.get("media_thumbnail")
+        if thumbnail:
+            handler.addQuickElement("media:thumbnail", "", {"url": thumbnail})
+
+
+def build_feed(shows: list[dict[str, Any]]) -> AtomFeedWithMedia:
+    feed = AtomFeedWithMedia(
         title=FEED_TITLE,
         link=SOURCE_URL,
         description=FEED_DESCRIPTION,

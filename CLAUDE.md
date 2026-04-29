@@ -69,7 +69,8 @@ GET https://api.p-ticket.jp/show/get-list-home
    - `title = show_group_main_title`（`show_group_sub_title` があれば連結）
    - `link = https://p-ticket.jp/saitama-culture/event/{show_group_id}`
    - `pubdate = parse(disp_sort, JST)`（`YYYYMMDDHHMM` を `Asia/Tokyo` で datetime 化、`tver-rss` 同様 UTC に変換して渡す）
-   - `description` は **コンパクト**: 先頭に CDN サムネイル `<img>`、続けて `公演日時 / 会場 / ジャンル / 販売状況` を `<br>` 区切りで並べるだけ。`list_explanation` は使わない（リーダー上で情報過多になる）。`<img>` の `alt` は `html.escape(show_group_main_title, quote=True)` でエスケープ
+   - `description` は **コンパクト**に `公演日時 / 会場 / ジャンル / 販売状況` を `<br>` 区切りで並べるだけ。`list_explanation` は使わない（リーダー上で情報過多になる）
+   - サムネイル画像は **`<media:thumbnail>`**（Media RSS, `xmlns:media="http://search.yahoo.com/mrss/"`）で出す。本文に `<img>` は埋めない（リーダー側で二重表示になるため）。これは `feedgenerator.Atom1Feed` を継承した `AtomFeedWithMedia` で実装: `root_attributes` で namespace を増やし、`add_item_elements` で `media:thumbnail` を吐く。アイテム側は `add_item(media_thumbnail=URL, ...)` で渡す
 3. `feedgenerator.Atom1Feed` を `dist/feed.xml` に書き出して終わり
 
 `requests` 呼び出しには **必ず `timeout` と `raise_for_status`** を付ける（`tver-rss/main.py:14-17` 参照）。1 アイテムのパース失敗で全体を落とさない per-item `try/except` パターンも踏襲。

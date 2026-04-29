@@ -1,4 +1,5 @@
 import datetime
+import io
 import pathlib
 from typing import Any
 from unittest.mock import patch
@@ -61,38 +62,28 @@ def test_build_title_falls_back_to_show_group_id() -> None:
     assert main.build_title(show) == "bc1"
 
 
-def test_build_image_tag_returns_cdn_img_with_escaped_alt() -> None:
-    tag = main.build_image_tag(
-        {"show_group_id": "bc260501", "show_group_main_title": '"危険" な & タイトル'}
-    )
-    assert tag is not None
-    assert 'src="https://cdn.p-ticket.jp/saitama-culture/event/bc260501/internet_pic0_image"' in tag
-    # 二重引用符 / アンパサンドは HTML エスケープされる
-    assert "&quot;" in tag
-    assert "&amp;" in tag
+def test_build_image_url_returns_cdn_url() -> None:
+    url = main.build_image_url({"show_group_id": "bc260501"})
+    assert url == "https://cdn.p-ticket.jp/saitama-culture/event/bc260501/internet_pic0_image"
 
 
-def test_build_image_tag_returns_none_without_show_group_id() -> None:
-    assert main.build_image_tag({"show_group_main_title": "no id"}) is None
+def test_build_image_url_returns_none_without_show_group_id() -> None:
+    assert main.build_image_url({"show_group_main_title": "no id"}) is None
 
 
-def test_build_description_includes_image_and_meta(show_full: dict[str, Any]) -> None:
+def test_build_description_lists_meta(show_full: dict[str, Any]) -> None:
     desc = main.build_description(show_full)
-    assert (
-        '<img src="https://cdn.p-ticket.jp/saitama-culture/event/bc260501/internet_pic0_image"'
-        in desc
-    )
     assert "公演日時: 2026/5/1(金) 18:30" in desc
     assert "会場: さいたま市文化センター" in desc
     assert "ジャンル: 音楽 / クラシック" in desc
     assert "販売: 空席あり○" in desc
+    # 画像は description ではなく <media:thumbnail> に出すので body に <img> は含まない
+    assert "<img" not in desc
 
 
 def test_build_description_drops_list_explanation_for_brevity() -> None:
     desc = main.build_description({"show_group_id": "bc1", "list_explanation": "長い本文"})
-    assert "長い本文" not in desc
-    # show_group_id だけ与えても画像タグは入る
-    assert "<img" in desc
+    assert desc == ""
 
 
 def test_build_description_skips_sales_without_status() -> None:
@@ -107,6 +98,26 @@ def test_build_description_skips_sales_without_status() -> None:
     )
     assert "販売: 完売" in desc
     assert "2026/3/13" not in desc
+
+
+def test_show_to_item_includes_media_thumbnail(show_full: dict[str, Any]) -> None:
+    item = main.show_to_item(show_full)
+    assert (
+        item["media_thumbnail"]
+        == "https://cdn.p-ticket.jp/saitama-culture/event/bc260501/internet_pic0_image"
+    )
+
+
+def test_build_feed_emits_media_thumbnail_element(show_full: dict[str, Any]) -> None:
+    feed = main.build_feed([show_full])
+    buf = io.StringIO()
+    feed.write(buf, "utf-8")
+    xml = buf.getvalue()
+    assert 'xmlns:media="http://search.yahoo.com/mrss/"' in xml
+    assert (
+        '<media:thumbnail url="https://cdn.p-ticket.jp/saitama-culture/'
+        'event/bc260501/internet_pic0_image"'
+    ) in xml
 
 
 def test_show_to_item_links_to_detail_page(show_full: dict[str, Any]) -> None:
