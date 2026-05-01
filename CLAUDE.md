@@ -18,9 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `.pre-commit-config.yaml`（pre-commit-hooks + ruff + ruff-format + mypy）
 - `main.py`（実装は下記）
 - `tests/test_main.py`（pytest。カバレッジ閾値 80%）
-- `.github/workflows/gh-pages.yaml`（push + 毎日 00:00 UTC cron でビルド & Pages デプロイ）
-- `.github/workflows/ci.yaml`（push / PR で lint / format / mypy / pytest を実行）
-- `.github/workflows/claude.yml`（PR 自動レビュー、`github.actor != 'dependabot[bot]'` で除外）
+- `.github/workflows/gh-pages.yaml`（push + 毎日 00:00 UTC cron でビルド & Pages デプロイ。**唯一のワークフロー**）
 - `.github/dependabot.yml`（`github-actions` と `uv` を weekly、`commit-message.prefix: "ci"`）
 
 `feed.csv` も `templates/` も `feeds/index.html` も **使わない**（単一フィードなので URL/client_id は `main.py` に直書き、出力は `feed.xml` 一本）。
@@ -88,9 +86,7 @@ uv run pytest               # テスト + カバレッジ (cov-fail-under=80)
 uv run pre-commit run --all-files
 ```
 
-CI (`.github/workflows/ci.yaml`) は push / PR で `ruff check` / `ruff format --check` / `mypy` / `pytest`（カバレッジ閾値 80% 込み）を回す。1 つでも落ちたら merge 不可の方針。
-
-動作確認は `dist/feed.xml` がパースできること（例: `xmllint --noout dist/feed.xml`）と、CI が緑であることで見る。
+**CI ワークフローは置いていない**（`gh-pages.yaml` 単独）。lint / format / mypy / pytest は `pre-commit` のローカル実行で担保する方針。動作確認は `dist/feed.xml` がパースできること（例: `xmllint --noout dist/feed.xml`）と、`gh-pages.yaml` のビルドが通っていることで見る。
 
 ## デプロイ
 
@@ -104,13 +100,9 @@ CI (`.github/workflows/ci.yaml`) は push / PR で `ruff check` / `ruff format -
 
 購読 URL は `https://hanwarai.github.io/saitama-culture-rss/feed.xml`。ルート (`/`) には `index.html` がないので 404 になる — リーダーには `feed.xml` の URL を直接渡す。
 
-## 自動 PR レビュー & Dependabot
+## Dependabot
 
-`tver-rss` 同様、`.github/workflows/claude.yml` に `anthropics/claude-code-action` の自動レビュー、`.github/dependabot.yml` に `github-actions` と `uv` の weekly 更新を入れる。
-
-- レビューは `github.actor != 'dependabot[bot]'` でスキップ（trivial bump で subscription quota を食わせない）
-- Dependabot の `commit-message.prefix` は `ci`
-- 認証は `CLAUDE_CODE_OAUTH_TOKEN` secret（`claude setup-token` で発行）
+`.github/dependabot.yml` に `github-actions` と `uv` の weekly 更新を入れる。Dependabot の `commit-message.prefix` は `ci`。自動 PR レビュー (`claude.yml`) は置いていない。
 
 ## コミット慣例
 
