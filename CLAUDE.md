@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `.github/workflows/gh-pages.yaml`（push + 毎日 00:00 UTC cron でビルド & Pages デプロイ。**唯一のワークフロー**）
 - `.github/dependabot.yml`（`github-actions` と `uv` を weekly、`commit-message.prefix: "ci"`）
 
-`feed.csv` も `templates/` も `feeds/index.html` も **使わない**（単一フィードなので URL/client_id は `main.py` に直書き、出力は `feed.xml` 一本）。
+`templates/` も `feeds/index.html` も **使わない**（単一フィードなので URL/client_id は `main.py` に直書き、出力は `feed.xml` 一本）。
 
 出力先は `dist/feed.xml`。`actions/upload-pages-artifact` の `path: dist`。
 
@@ -69,7 +69,7 @@ GET https://api.p-ticket.jp/show/get-list-home
    - サムネイル画像は **`<media:thumbnail>`**（Media RSS, `xmlns:media="http://search.yahoo.com/mrss/"`）で出す。本文に `<img>` は埋めない（リーダー側で二重表示になるため）。これは `feedgenerator.Atom1Feed` を継承した `AtomFeedWithMedia` で実装: `root_attributes` で namespace を増やし、`add_item_elements` で `media:thumbnail` を吐く。アイテム側は `add_item(media_thumbnail=URL, ...)` で渡す
 3. `AtomFeedWithMedia`（`feedgenerator.Atom1Feed` 派生）で `dist/feed.xml` に書き出して終わり
 
-`requests` 呼び出しには **必ず `timeout` と `raise_for_status`** を付ける（`main.py:43-50`）。1 アイテムのパース失敗で全体を落とさない per-item `try/except` は `build_feed` で実装。
+`requests` 呼び出しには **必ず `timeout` と `raise_for_status`** を付ける（`fetch_show_list`）。1 アイテムのパース失敗で全体を落とさない per-item `try/except` は `build_feed` で実装。
 
 ## コマンド
 
@@ -102,7 +102,7 @@ uv run pre-commit run --all-files
 
 ## Dependabot
 
-`.github/dependabot.yml` に `github-actions` と `uv` の weekly 更新を入れる。Dependabot の `commit-message.prefix` は `ci`。自動 PR レビュー (`claude.yml`) は置いていない。
+`.github/dependabot.yml` で `github-actions` と `uv` を weekly 更新。`commit-message.prefix` は `ci`。`pip` ecosystem も登録されているが `open-pull-requests-limit: 0` で抑止 (uv 経由で済むため重複 PR を避ける)。自動 PR レビュー (`claude.yml`) は置いていない。
 
 ## コミット慣例
 
