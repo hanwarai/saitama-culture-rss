@@ -77,6 +77,7 @@ Python 3.13 系を `uv` で固定。
 
 ```bash
 uv sync                     # 依存インストール (dev グループ含む)
+uv run pre-commit install   # 初回のみ: git hook を有効化 (CI を置いてないため必須)
 uv run main.py              # フィード生成: dist/feed.xml を出力
 SSL_VERIFY=False uv run main.py  # 自己署名証明書環境用 (社内プロキシ等)
 uv run ruff check .         # lint (mccabe 複雑度 10 まで含む)
