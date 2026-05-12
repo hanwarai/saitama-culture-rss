@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Atom feed generator for p-ticket.jp/saitama-culture"
 requires-python = ">=3.13,<3.14"
 dependencies = [
-    "requests>=2.32",
+    "requests>=2.34.0",
     "feedgenerator>=2.1",
 ]
 
