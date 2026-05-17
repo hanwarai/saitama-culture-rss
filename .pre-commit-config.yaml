@@ -22,5 +22,6 @@ repos:
       - id: mypy
         additional_dependencies:
           - types-requests
+          - pytest
         args: [--config-file=pyproject.toml]
         files: ^(main\.py|tests/)
