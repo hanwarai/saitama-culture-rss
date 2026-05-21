@@ -17,6 +17,10 @@ dev = [
     "pre-commit>=4",
     "types-requests",
 ]
+# uv 本体のバージョンピン。Dependabot (uv エコシステム) がこの行を bump し、
+# CI (.github/workflows/gh-pages.yaml) が setup-uv に渡す version をここから読む。
+# 既定グループではないため `uv sync` で venv にはインストールされない。
+ci = ["uv==0.11.15"]
 
 [tool.uv]
 package = false
