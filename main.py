@@ -103,10 +103,14 @@ def build_description(show: dict[str, Any]) -> str:
 
 def show_to_item(show: dict[str, Any]) -> dict[str, Any]:
     show_group_id = show["show_group_id"]
+    link = DETAIL_URL_TEMPLATE.format(show_group_id=show_group_id)
     item: dict[str, Any] = {
-        "unique_id": show_group_id,
+        # feedgenerator は unique_id をそのまま Atom の <id> に出す。多くのリーダーが
+        # <id> をパーマリンクとして扱うため、絶対 URL (= link) を入れる。bare な
+        # show_group_id だとフィード URL に相対解決され 404 リンクになる
+        "unique_id": link,
         "title": build_title(show),
-        "link": DETAIL_URL_TEMPLATE.format(show_group_id=show_group_id),
+        "link": link,
         "description": build_description(show),
         "pubdate": parse_disp_sort(show["disp_sort"]),
     }

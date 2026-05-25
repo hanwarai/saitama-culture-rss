@@ -122,10 +122,22 @@ def test_build_feed_emits_media_thumbnail_element(show_full: dict[str, Any]) -> 
 
 def test_show_to_item_links_to_detail_page(show_full: dict[str, Any]) -> None:
     item = main.show_to_item(show_full)
-    assert item["unique_id"] == "bc260501"
+    # <id> はリーダーがパーマリンクに使うことが多いので絶対 URL (= link) を入れる
+    assert item["unique_id"] == "https://p-ticket.jp/saitama-culture/event/bc260501"
     assert item["link"] == "https://p-ticket.jp/saitama-culture/event/bc260501"
     assert isinstance(item["pubdate"], datetime.datetime)
     assert item["pubdate"].tzinfo == datetime.UTC
+
+
+def test_build_feed_uses_absolute_url_as_entry_id(show_full: dict[str, Any]) -> None:
+    feed = main.build_feed([show_full])
+    buf = io.StringIO()
+    feed.write(buf, "utf-8")
+    xml = buf.getvalue()
+    # Atom の <id> は絶対 IRI であるべき。bare な show_group_id だとリーダーが
+    # フィード URL に相対解決して 404 のパーマリンクになる
+    assert "<id>https://p-ticket.jp/saitama-culture/event/bc260501</id>" in xml
+    assert "<id>bc260501</id>" not in xml
 
 
 def test_build_feed_skips_invalid_shows(show_full: dict[str, Any]) -> None:
@@ -133,7 +145,7 @@ def test_build_feed_skips_invalid_shows(show_full: dict[str, Any]) -> None:
     feed = main.build_feed([show_full, broken])
     # feedgenerator は items 属性に list を保持
     assert len(feed.items) == 1
-    assert feed.items[0]["unique_id"] == "bc260501"
+    assert feed.items[0]["unique_id"] == "https://p-ticket.jp/saitama-culture/event/bc260501"
 
 
 def test_fetch_show_list_unwraps_payload(show_full: dict[str, Any]) -> None:
