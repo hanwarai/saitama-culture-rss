@@ -15,11 +15,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `pyproject.toml` — Python 3.13、本体依存 `requests` / `feedgenerator`。dev 依存に `ruff` / `mypy` / `pytest` / `pytest-cov` / `pre-commit` / `types-requests`。`[tool.ruff]` `[tool.mypy]` `[tool.pytest.ini_options]` も同居
 - `.python-version`
 - `.gitignore`（`/dist/` を ignore。`uv.lock` は **commit する**）
-- `.pre-commit-config.yaml`（pre-commit-hooks + ruff + ruff-format + mypy）
+- `.pre-commit-config.yaml`（pre-commit-hooks は remote rev 固定。ruff / ruff-format / mypy は `repo: local` で `uv run` 経由 — 後述）
 - `main.py`（実装は下記）
 - `tests/test_main.py`（pytest。カバレッジ閾値 80%）
-- `.github/workflows/gh-pages.yaml`（push + 毎日 00:00 UTC cron でビルド & Pages デプロイ。**唯一のワークフロー**）
-- `.github/dependabot.yml`（`github-actions` と `uv` を weekly、`commit-message.prefix: "ci"`）
+- `.github/workflows/ci.yaml`（PR と main への push で lint / format / mypy / pytest を実行）
+- `.github/workflows/gh-pages.yaml`（push + 毎日 00:00 UTC cron でビルド & Pages デプロイ）
+- `.github/dependabot.yml`（`github-actions` / `uv` / `pre-commit` を weekly、`commit-message.prefix: "ci"`）
 
 `templates/` も `feeds/index.html` も **使わない**（単一フィードなので URL/client_id は `main.py` に直書き、出力は `feed.xml` 一本）。
 
@@ -77,7 +78,7 @@ Python 3.13 系を `uv` で固定。
 
 ```bash
 uv sync                     # 依存インストール (dev グループ含む)
-uv run pre-commit install   # 初回のみ: git hook を有効化 (CI を置いてないため必須)
+uv run pre-commit install   # 初回のみ: git hook を有効化 (commit 前に CI と同じゲートを走らせる)
 uv run main.py              # フィード生成: dist/feed.xml を出力
 SSL_VERIFY=False uv run main.py  # 自己署名証明書環境用 (社内プロキシ等)
 uv run ruff check .         # lint (mccabe 複雑度 10 まで含む)
@@ -87,7 +88,12 @@ uv run pytest               # テスト + カバレッジ (cov-fail-under=80)
 uv run pre-commit run --all-files
 ```
 
-**CI ワークフローは置いていない**（`gh-pages.yaml` 単独）。lint / format / mypy / pytest は `pre-commit` のローカル実行で担保する方針。動作確認は `dist/feed.xml` がパースできること（例: `xmllint --noout dist/feed.xml`）と、`gh-pages.yaml` のビルドが通っていることで見る。
+品質ゲートは **`.github/workflows/ci.yaml` と pre-commit の二段**で、同じコマンドを走らせる:
+
+- CI: `uv sync --locked` → `ruff check` → `ruff format --check` → `mypy` → `pytest`。`pull_request` と main への push で発火する。**`uv sync --locked` が要**（素の `uv sync` はロックのずれを黙って再生成するので、Dependabot PR の `uv.lock` 整合性はここでしか落とせない）。フィード生成は外部 API 依存なので CI では走らせない — 実地検証は `gh-pages.yaml` の日次ビルドが担う。
+- pre-commit: ruff / mypy は `repo: local` で `uv run` を叩く。mirrors リポジトリを rev 固定すると `uv.lock` と独立に動いて hook と `uv run ruff` が別バージョンになるため、意図的に local hook にしている。`pre-commit-hooks` だけ remote rev で、Dependabot の `pre-commit` エコシステムが追従する。
+
+フィード自体の動作確認は `uv run main.py` の後に `xmllint --noout dist/feed.xml` で見る。
 
 ## デプロイ
 
@@ -103,7 +109,7 @@ uv run pre-commit run --all-files
 
 ## Dependabot
 
-`.github/dependabot.yml` で `github-actions` と `uv` を weekly 更新。`commit-message.prefix` は `ci`。`pip` ecosystem も登録されているが `open-pull-requests-limit: 0` で抑止 (uv 経由で済むため重複 PR を避ける)。自動 PR レビュー (`claude.yml`) は置いていない。
+`.github/dependabot.yml` で `github-actions` / `uv` / `pre-commit` を weekly 更新。`commit-message.prefix` は `ci`。`pip` ecosystem も登録されているが `open-pull-requests-limit: 0` で抑止 (uv 経由で済むため重複 PR を避ける)。自動 PR レビュー (`claude.yml`) は置いていない。
 
 ## コミット慣例
 

@@ -1,0 +1,61 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # uv 本体のバージョンは pyproject.toml の [dependency-groups] ci にピンしてあり、
+      # Dependabot (uv エコシステム) がそれを bump する。gh-pages.yaml と同じ手順。
+      # 複合アクションに切り出すと Dependabot の action 更新対象から外れうるため重複させている。
+      - name: Resolve uv version
+        id: uv-version
+        run: |
+          version=$(grep -oP '"uv==\K[0-9]+\.[0-9]+\.[0-9]+' pyproject.toml)
+          if [ -z "$version" ]; then
+            echo "::error::could not resolve uv version pin from pyproject.toml"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: ${{ steps.uv-version.outputs.version }}
+          enable-cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version-file: "pyproject.toml"
+
+      # --locked: 素の `uv sync` はロックのずれを黙って再生成して隠すため、
+      # Dependabot PR の uv.lock 整合性はここでしか検出できない。
+      - name: Install the project
+        run: uv sync --locked
+
+      - name: ruff check
+        run: uv run ruff check .
+
+      - name: ruff format
+        run: uv run ruff format --check .
+
+      - name: mypy
+        run: uv run mypy
+
+      - name: pytest
+        run: uv run pytest
