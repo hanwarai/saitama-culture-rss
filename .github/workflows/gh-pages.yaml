@@ -42,8 +42,10 @@ jobs:
         with:
           python-version-file: "pyproject.toml"
 
+      # --locked: ci.yaml と揃える。素の uv sync はロックのずれを黙って
+      # 再生成するため、日次ビルドが気付かないまま別バージョンで動きうる。
       - name: Install the project
-        run: uv sync
+        run: uv sync --locked
 
       - name: Generate feed
         run: uv run main.py

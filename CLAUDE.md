@@ -100,7 +100,7 @@ uv run pre-commit run --all-files
 `.github/workflows/gh-pages.yaml`（`tver-rss` と同一テンプレート）:
 
 - トリガー: `main` への push と毎日 00:00 UTC cron
-- `astral-sh/setup-uv` → `actions/setup-python`（`python-version-file: pyproject.toml`）→ `uv sync` → `uv run main.py` → `actions/upload-pages-artifact`（path: `dist`）→ `actions/deploy-pages`
+- `astral-sh/setup-uv` → `actions/setup-python`（`python-version-file: pyproject.toml`）→ `uv sync --locked` → `uv run main.py` → `actions/upload-pages-artifact`（path: `dist`）→ `actions/deploy-pages`
 - `concurrency` を workflow 単位でまとめて、push と cron の競合を防ぐ
 
 `dist/` 配下は `.gitignore` 済み（ランナー上で生成して直接 Pages にアップ）。git tracked な成果物はない。
