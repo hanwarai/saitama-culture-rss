@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -9,19 +9,32 @@ repos:
       - id: check-merge-conflict
       - id: mixed-line-ending
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.0
+  # ruff / mypy は mirrors リポジトリを rev 固定せず、uv.lock が解決した
+  # プロジェクト自身のバージョンを `uv run` 経由で使う。mirrors 版だと rev と
+  # uv.lock が独立に動いて hook と `uv run ruff` / `uv run mypy` が別結果を出す。
+  - repo: local
     hooks:
-      - id: ruff
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --force-exclude
         args: [--fix]
-      - id: ruff-format
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.13.0
-    hooks:
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      # pyproject の [tool.mypy] files = ["main.py", "tests"] を対象にするため
+      # ファイル名は渡さない (渡すと設定側の files 指定と食い違う)。
       - id: mypy
-        additional_dependencies:
-          - types-requests
-          - pytest
-        args: [--config-file=pyproject.toml]
-        files: ^(main\.py|tests/)
+        name: mypy
+        entry: uv run mypy
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+        pass_filenames: false

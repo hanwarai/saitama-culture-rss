@@ -15,6 +15,15 @@ updates:
     commit-message:
       prefix: "ci"
 
+  # .pre-commit-config.yaml の remote repo (pre-commit-hooks) の rev を追従させる。
+  # ruff / mypy は local hook で uv.lock を直接使うため、ここでは動かない。
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
