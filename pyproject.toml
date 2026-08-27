@@ -10,11 +10,11 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "ruff>=0.15.21",
-    "mypy>=2.1.0",
+    "ruff>=0.16.4",
+    "mypy>=2.3.1",
     "pytest>=9.1.1",
     "pytest-cov>=6",
-    "pre-commit>=4",
+    "pre-commit>=4.6.2",
     "types-requests",
 ]
 # uv 本体のバージョンピン。Dependabot (uv エコシステム) がこの行を bump し、
