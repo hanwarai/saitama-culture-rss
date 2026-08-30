@@ -48,6 +48,12 @@ jobs:
       - name: Install the project
         run: uv sync --locked
 
+      # ワークフロー定義自体の lint。actionlint 本体のバージョンは action 既定の latest に
+      # 任せる (ここを固定すると Dependabot が追えないピンになり、黙って腐る)。action 自体は
+      # SHA ピンなので供給網は押さえられている。
+      - name: Lint workflows
+        uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
+
       - name: ruff check
         run: uv run ruff check .
 
