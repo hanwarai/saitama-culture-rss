@@ -5,17 +5,17 @@ description = "Atom feed generator for p-ticket.jp/saitama-culture"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "requests>=2.34.2",
-    "feedgenerator>=2.1",
+    "feedgenerator>=2.2.1",
 ]
 
 [dependency-groups]
 dev = [
-    "ruff>=0.16.4",
+    "ruff>=0.16.5",
     "mypy>=2.3.1",
     "pytest>=9.1.1",
-    "pytest-cov>=6",
+    "pytest-cov>=7.1",
     "pre-commit>=4.6.2",
-    "types-requests",
+    "types-requests>=2.33.0.20260712",
 ]
 # uv 本体のバージョンピン。Dependabot (uv エコシステム) がこの行を bump し、
 # CI (.github/workflows/gh-pages.yaml) が setup-uv に渡す version をここから読む。
