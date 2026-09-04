@@ -24,8 +24,8 @@ jobs:
       - name: Enable auto-merge for non-major updates
         if: steps.metadata.outputs.update-type != 'version-update:semver-major'
         env:
-          PR_URL: ${ github.event.pull_request.html_url }
-          GH_TOKEN: ${ secrets.GITHUB_TOKEN }
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           # check が既に green だと --auto は "clean status" で失敗する。その場合は素の
@@ -41,5 +41,5 @@ jobs:
       - name: Report skipped major update
         if: steps.metadata.outputs.update-type == 'version-update:semver-major'
         env:
-          NAMES: ${ steps.metadata.outputs.dependency-names }
+          NAMES: ${{ steps.metadata.outputs.dependency-names }}
         run: echo "::notice::major update ($NAMES) のため自動マージせず手動レビューに残す"
