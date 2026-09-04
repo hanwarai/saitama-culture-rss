@@ -10,6 +10,12 @@ permissions:
   contents: write
   pull-requests: write
 
+# Dependabot は rebase のたびに synchronize を投げるので run が重なる。2 本目は
+# 「もうマージ済み」で赤くなるだけなので、PR 単位で古い run を畳む。
+concurrency:
+  group: auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
@@ -28,13 +34,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # check が既に green だと --auto は "clean status" で失敗する。その場合は素の
-          # merge にフォールバックする。--admin を付けないので branch protection は
-          # 依然として効き、赤い PR がマージされることはない。
-          if gh pr merge --auto --squash "$PR_URL"; then
-            echo "auto-merge を有効化した"
+          # gh は CLEAN / HAS_HOOKS / UNSTABLE を「即マージ可能」と判断し、--auto を
+          # 付けていてもその場でマージする。else に来るのは DIRTY (コンフリクト) や
+          # auto-merge 無効、API の一時エラー等。素の merge に落としても --admin を
+          # 付けていないので branch protection の required check は効いたままで、
+          # 赤い PR は弾かれる。ただしその安全性は workflow 外の設定 (main の
+          # required status checks に quality が入っていること) に依存する。
+          if err=$(gh pr merge --auto --squash "$PR_URL" 2>&1); then
+            echo "${err:-マージまたは auto-merge の有効化に成功した}"
           else
-            echo "::notice::auto-merge の有効化に失敗。check が既に green とみなして直接マージを試みる"
+            # 失敗理由を伏せると原因調査ができないので、そのまま出してから再試行する
+            echo "::notice::gh pr merge --auto が失敗したため素の merge を試みる: $err"
             gh pr merge --squash "$PR_URL"
           fi
 
