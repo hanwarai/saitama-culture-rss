@@ -53,9 +53,9 @@ GET https://api.p-ticket.jp/show/get-list-home
 | `sales_list[].sales_term` / `show_sales_status` | 販売期間と空席状況（`"空席あり○"` / `"残りわずか△"`） |
 | `code_nm` | 画像のオリジナル拡張子。**公開 URL には拡張子は不要**（下記） |
 
-**派生 URL**（CDN/Web 側、いずれもコードで判明済）:
+**派生 URL**（CDN/Web 側）:
 
-- 詳細ページ: `https://p-ticket.jp/saitama-culture/event/{show_group_id}` → アイテムの `link`
+- 詳細ページ: `https://p-ticket.jp/saitama-culture/show/{show_group_id}/schedule` → アイテムの `link`。Nuxt の router 定義 `/:client_id/show/:show_group_id?/schedule` に対応する（`window.$nuxt.$router.options.routes` で確認できる）。**`/schedule` は必須**、`/event/{id}` というルートは存在しない
 - メイン画像: `https://cdn.p-ticket.jp/saitama-culture/event/{show_group_id}/internet_pic0_image`（拡張子なしで 200 が返る。`code_nm` を末尾につけると 403 なので注意）
 
 ## アーキテクチャ（`main.py`）
@@ -64,7 +64,7 @@ GET https://api.p-ticket.jp/show/get-list-home
 2. `data.show_list` を回して、各 show を Atom item に変換:
    - `unique_id = show_group_id`
    - `title = show_group_main_title`（`show_group_sub_title` があれば連結）
-   - `link = https://p-ticket.jp/saitama-culture/event/{show_group_id}`
+   - `link = https://p-ticket.jp/saitama-culture/show/{show_group_id}/schedule`
    - `pubdate = parse(disp_sort, JST)`（`YYYYMMDDHHMM` を `Asia/Tokyo` で datetime 化、`tver-rss` 同様 UTC に変換して渡す）
    - `description` は **コンパクト**に `公演日時 / 会場 / ジャンル / 販売状況` を `<br>` 区切りで並べるだけ。`list_explanation` は使わない（リーダー上で情報過多になる）
    - サムネイル画像は **`<media:thumbnail>`**（Media RSS, `xmlns:media="http://search.yahoo.com/mrss/"`）で出す。本文に `<img>` は埋めない（リーダー側で二重表示になるため）。これは `feedgenerator.Atom1Feed` を継承した `AtomFeedWithMedia` で実装: `root_attributes` で namespace を増やし、`add_item_elements` で `media:thumbnail` を吐く。アイテム側は `add_item(media_thumbnail=URL, ...)` で渡す
@@ -122,4 +122,6 @@ uv run pre-commit run --all-files
 - `list_explanation` は HTML エンティティではなく **リテラルの文字列 `</br>`** が混じる。現状は使っていないので問題にならないが、もし将来本文として使うなら `replace("</br>", "<br>")` を忘れずに
 - `disp_sort` は JST 想定。UTC 変換漏れに注意
 - 画像 URL に `code_nm`（`png`/`jpg`）の拡張子を足すと CloudFront 403。**拡張子なしのまま使う**
+- **画像 CDN のパスは `/event/` のまま**。詳細ページが `/show/{id}/schedule` なのに引きずられて揃えないこと（CDN 側は別系統）
+- **サイトは Nuxt SPA なので、存在しないパスでも HTTP 200 と HTML を返し、404 はクライアント側で描画される**。`curl` / `raise_for_status` ではリンク切れを検出できない。リンク先の URL 形式を変えたときは実ブラウザで開いて本文を見ること（`This page could not be found` が出ていないか）
 - 件数は現状 ~18 件で `end_position=100` で全件取れるが、将来増えるなら `record_num` を見て二度引きに

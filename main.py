@@ -9,7 +9,10 @@ import requests
 API_URL = "https://api.p-ticket.jp/show/get-list-home"
 CLIENT_ID = "saitama-culture"
 SOURCE_URL = f"https://p-ticket.jp/{CLIENT_ID}"
-DETAIL_URL_TEMPLATE = f"{SOURCE_URL}/event/{{show_group_id}}"
+# 公演詳細は Nuxt の `/:client_id/show/:show_group_id?/schedule` ルート。`/event/...`
+# や `/schedule` 抜きは SPA が 404 を描画する (HTTP は 200 なので curl では気付けない)
+DETAIL_URL_TEMPLATE = f"{SOURCE_URL}/show/{{show_group_id}}/schedule"
+# 画像は CDN 側で、こちらは `/event/` のまま 200 が返る。詳細ページと違うので揃えない
 IMAGE_URL_TEMPLATE = (
     f"https://cdn.p-ticket.jp/{CLIENT_ID}/event/{{show_group_id}}/internet_pic0_image"
 )
